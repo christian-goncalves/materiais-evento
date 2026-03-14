@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Encompasso · Materiais NA</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <style>
   :root {
     --bg:        #f0f4fb;
@@ -272,6 +274,16 @@
 
   .qty-field { display:none; margin-top:12px; }
   .qty-field.show { display:block; }
+
+  .btn-export-pdf {
+    width:100%; padding:13px; background:var(--white); color:var(--blue);
+    border:2px solid var(--blue); border-radius:var(--radius);
+    font-family:'Barlow Condensed',sans-serif; font-size:18px; font-weight:700;
+    letter-spacing:1px; text-transform:uppercase;
+    cursor:pointer; margin-bottom:14px; transition:all .15s;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .btn-export-pdf:active { background:var(--blue-xlt); }
 
   .btn-submit {
     width:100%; padding:16px; background:var(--blue); color:#fff;
@@ -806,6 +818,8 @@ function renderResumo() {
       </div>`).join('')}` : '';
 
   document.getElementById('tab-resumo').innerHTML = `
+    <button class="btn-export-pdf" onclick="exportarPDF()">📄 Exportar Relatório PDF</button>
+
     <div class="total-card">
       <div>
         <div class="total-label">💰 Total Geral</div>
@@ -893,6 +907,165 @@ function renderCard(p) {
       <button class="btn-action btn-excluir" onclick="excluir(${p.id})">🗑</button>
     </div>
   </div>`;
+}
+
+// ── EXPORTAR PDF ─────────────────────────────
+function exportarPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+  const AZUL     = [0, 48, 135];
+  const AZUL_LT  = [232, 239, 254];
+  const CINZA1   = [26, 26, 46];
+  const CINZA3   = [128, 128, 168];
+  const VERDE    = [15, 143, 94];
+  const AMBER    = [184, 110, 0];
+  const W        = 210;
+  const MARGIN   = 14;
+
+  // ── Cabeçalho ──
+  doc.setFillColor(...AZUL);
+  doc.rect(0, 0, W, 36, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(7); doc.setFont('helvetica','normal');
+  doc.text('NARCOTICOS ANONIMOS · CSA NOVO & CSA VIRTUAL', MARGIN, 10);
+  doc.setFontSize(18); doc.setFont('helvetica','bold');
+  doc.text('ENCOMPASSO UNIFICADO', MARGIN, 20);
+  doc.setFontSize(9); doc.setFont('helvetica','normal');
+  doc.text('Relatorio de Materiais', MARGIN, 27);
+  doc.text(`Gerado em ${hojeFormatado()}`, W - MARGIN, 27, { align: 'right' });
+
+  let y = 46;
+
+  // ── Totais gerais ──
+  const totalGeral    = pedidos.reduce((s, p) => s + calcTotal(p.itens), 0);
+  const totalPago     = pedidos.filter(p => p.pago === 'Sim').reduce((s, p) => s + calcTotal(p.itens), 0);
+  const totalPendente = totalGeral - totalPago;
+  const qtdPago       = pedidos.filter(p => p.pago === 'Sim').length;
+  const qtdPendente   = pedidos.filter(p => p.pago === 'Não').length;
+
+  // 3 caixinhas de resumo
+  const boxW = (W - MARGIN * 2 - 8) / 3;
+  const boxes = [
+    { label: 'TOTAL GERAL',  value: `R$ ${totalGeral.toLocaleString('pt-BR')}`,     sub: `${pedidos.length} pedidos`,     cor: AZUL },
+    { label: 'RECEBIDO',     value: `R$ ${totalPago.toLocaleString('pt-BR')}`,       sub: `${qtdPago} pagos`,              cor: VERDE },
+    { label: 'PENDENTE',     value: `R$ ${totalPendente.toLocaleString('pt-BR')}`,   sub: `${qtdPendente} pendentes`,      cor: AMBER },
+  ];
+  boxes.forEach((b, i) => {
+    const x = MARGIN + i * (boxW + 4);
+    doc.setFillColor(240, 244, 251);
+    doc.roundedRect(x, y, boxW, 22, 2, 2, 'F');
+    doc.setDrawColor(...b.cor);
+    doc.setLineWidth(0.8);
+    doc.line(x, y, x, y + 22);
+    doc.setTextColor(...b.cor);
+    doc.setFontSize(7); doc.setFont('helvetica','bold');
+    doc.text(b.label, x + 4, y + 7);
+    doc.setFontSize(12); doc.setFont('helvetica','bold');
+    doc.text(b.value, x + 4, y + 15);
+    doc.setFontSize(7); doc.setFont('helvetica','normal');
+    doc.setTextColor(...CINZA3);
+    doc.text(b.sub, x + 4, y + 20);
+  });
+  y += 30;
+
+  // ── Totais por material ──
+  doc.setFontSize(8); doc.setFont('helvetica','bold');
+  doc.setTextColor(...CINZA3);
+  doc.text('MATERIAIS', MARGIN, y); y += 5;
+
+  const matW = (W - MARGIN * 2 - (materiais.length - 1) * 4) / materiais.length;
+  materiais.forEach((m, i) => {
+    const x   = MARGIN + i * (matW + 4);
+    const qty = pedidos.reduce((s, p) => s + (p.itens[m.id] || 0), 0);
+    const val = qty * m.preco;
+    doc.setFillColor(...AZUL_LT);
+    doc.roundedRect(x, y, matW, 18, 2, 2, 'F');
+    doc.setTextColor(...AZUL);
+    doc.setFontSize(7); doc.setFont('helvetica','bold');
+    doc.text(m.nome.toUpperCase(), x + 4, y + 6);
+    doc.setFontSize(14); doc.setFont('helvetica','bold');
+    doc.text(String(qty), x + 4, y + 14);
+    doc.setFontSize(7); doc.setFont('helvetica','normal');
+    doc.setTextColor(...CINZA3);
+    doc.text(`R$ ${val.toLocaleString('pt-BR')}`, x + matW - 4, y + 14, { align: 'right' });
+  });
+  y += 26;
+
+  // ── Tabela de pedidos ──
+  doc.setFontSize(8); doc.setFont('helvetica','bold');
+  doc.setTextColor(...CINZA3);
+  doc.text('PEDIDOS', MARGIN, y); y += 3;
+
+  // Colunas: Data | Nome | Compra | Valor | Status | Prev. Pagamento
+  const colunas = ['Data', 'Nome', 'Compra', 'Valor', 'Status', 'Prev. Pagto'];
+  const linhas  = pedidos.map(p => {
+    const compra = materiais
+      .filter(m => (p.itens[m.id] || 0) > 0)
+      .map(m => `${p.itens[m.id]}x ${m.nome}`)
+      .join(', ') || '—';
+    return [
+      p.data,
+      p.nome,
+      compra,
+      `R$ ${calcTotal(p.itens).toLocaleString('pt-BR')}`,
+      p.pago === 'Sim' ? 'PAGO' : 'PENDENTE',
+      p.pagData || '—'
+    ];
+  });
+
+  doc.autoTable({
+    startY: y,
+    head: [colunas],
+    body: linhas,
+    margin: { left: MARGIN, right: MARGIN },
+    styles: {
+      fontSize: 8,
+      font: 'helvetica',
+      cellPadding: 3,
+      textColor: CINZA1,
+      lineColor: [220, 226, 240],
+      lineWidth: 0.2,
+    },
+    headStyles: {
+      fillColor: AZUL,
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+      fontSize: 8,
+    },
+    alternateRowStyles: { fillColor: [247, 249, 253] },
+    columnStyles: {
+      0: { cellWidth: 20 },
+      1: { cellWidth: 35 },
+      2: { cellWidth: 50 },
+      3: { cellWidth: 25, halign: 'right' },
+      4: { cellWidth: 22, halign: 'center',
+           fontStyle: 'bold',
+      },
+      5: { cellWidth: 25 },
+    },
+    didParseCell(data) {
+      if (data.column.index === 4 && data.section === 'body') {
+        const val = data.cell.raw;
+        data.cell.styles.textColor = val === 'PAGO' ? VERDE : AMBER;
+      }
+    },
+  });
+
+  // ── Rodapé ──
+  const pageCount = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(7); doc.setFont('helvetica','normal');
+    doc.setTextColor(...CINZA3);
+    doc.text(
+      `Encompasso Unificado · NA · Pagina ${i} de ${pageCount}`,
+      W / 2, 292, { align: 'center' }
+    );
+  }
+
+  doc.save(`relatorio-encompasso-${isoHoje()}.pdf`);
+  showToast('📄 PDF gerado!', 'success');
 }
 
 function setFiltro(f) { filtroAtivo = f; renderPedidos(); }
