@@ -479,17 +479,13 @@
 // ════════════════════════════════════════════
 //  CONFIG
 // ════════════════════════════════════════════
-const GITHUB_OWNER   = 'otavio-cyber';
-const GITHUB_REPO    = 'materiais-evento';
-const FILE_PEDIDOS   = 'data/pedidos.json';
-const FILE_MATERIAIS = 'data/materiais.json';
+const API_MATERIAIS = '/api/materiais';
+const API_PEDIDOS   = '/api/pedidos';
 // ════════════════════════════════════════════
 
 let pedidos     = [];
 let materiais   = [];
 let nextId      = 1;
-let fileSha     = null;
-let ghToken     = null;
 let editandoId  = null;
 let filtroAtivo = 'todos';
 let selecionados = {};
@@ -497,11 +493,6 @@ let pagSim = false;
 
 // ── INIT ───────────────────────────────────
 async function init() {
-  try {
-    const r = await fetch('/api/config');
-    if (r.ok) { const c = await r.json(); ghToken = c.token; }
-  } catch(e) {}
-
   await Promise.all([carregarMateriais(), carregarPedidos()]);
 
   document.getElementById('f-data').value = isoHoje();
@@ -517,54 +508,31 @@ function hideLoading() {
   setTimeout(() => l.remove(), 500);
 }
 
-// ── GITHUB API ─────────────────────────────
-function ghHeaders(write = false) {
-  const h = { 'Accept': 'application/vnd.github+json' };
-  if (ghToken) h['Authorization'] = `Bearer ${ghToken}`;
-  if (write)   h['Content-Type']  = 'application/json';
-  return h;
-}
-
-async function ghGet(file) {
-  const r = await fetch(
-    `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${file}`,
-    { headers: ghHeaders() }
-  );
-  if (r.status === 404) return null;
-  if (!r.ok) throw new Error(`GitHub GET ${file} → ${r.status}`);
+async function apiGet(url) {
+  const r = await fetch(url, { method: 'GET' });
+  if (!r.ok) throw new Error(`GET ${url} -> ${r.status}`);
   return r.json();
 }
 
-// ── ENCODING UTF-8 seguro para emojis e acentos ──
-function toBase64UTF8(str) {
-  const bytes = new TextEncoder().encode(str);
-  let bin = '';
-  bytes.forEach(b => bin += String.fromCharCode(b));
-  return btoa(bin);
+async function apiPut(url, payload) {
+  const r = await fetch(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!r.ok) throw new Error(`PUT ${url} -> ${r.status}`);
+  return r.json();
 }
 
-async function ghPut(file, content, sha, msg) {
-  const encoded = toBase64UTF8(JSON.stringify(content, null, 2));
-  const body = { message: msg, content: encoded, ...(sha ? { sha } : {}) };
-  const r = await fetch(
-    `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${file}`,
-    { method: 'PUT', headers: ghHeaders(true), body: JSON.stringify(body) }
-  );
-  if (!r.ok) throw new Error(`GitHub PUT ${file} → ${r.status}`);
-  return r.json();
+function normalizePagoLabel(v) {
+  return String(v || '').toLowerCase() === 'sim' ? 'Sim' : 'Não';
 }
 
 async function carregarMateriais() {
   try {
-    const data = await ghGet(FILE_MATERIAIS);
-    if (data) {
-      materiais = JSON.parse(atob(data.content.replace(/\n/g, '')));
-    } else {
-      materiais = [
-        { id:'camiseta', nome:'Camiseta', preco:50 },
-        { id:'caneca',   nome:'Caneca',   preco:35 }
-      ];
-    }
+    const data = await apiGet(API_MATERIAIS);
+    materiais = Array.isArray(data) ? data.filter(m => m && m.id && m.nome) : [];
+    if (!materiais.length) throw new Error('materiais_vazio');
   } catch(e) {
     materiais = [
       { id:'camiseta', nome:'Camiseta', preco:50 },
@@ -576,15 +544,13 @@ async function carregarMateriais() {
 async function carregarPedidos() {
   setSyncStatus('syncing', 'Carregando...');
   try {
-    const data = await ghGet(FILE_PEDIDOS);
-    if (data) {
-      fileSha = data.sha;
-      const parsed = JSON.parse(atob(data.content.replace(/\n/g, '')));
-      pedidos = parsed.pedidos || [];
-      nextId  = pedidos.reduce((m, p) => Math.max(m, p.id), 0) + 1;
-    } else {
-      pedidos = [];
-    }
+    const data = await apiGet(API_PEDIDOS);
+    pedidos = (data?.pedidos || []).map(p => ({
+      ...p,
+      pago: normalizePagoLabel(p.pago),
+      itens: p.itens || {}
+    }));
+    nextId = pedidos.reduce((m, p) => Math.max(m, Number(p.id) || 0), 0) + 1;
     localStorage.setItem('encompasso_backup', JSON.stringify(pedidos));
     setSyncStatus('ok', 'Sincronizado');
   } catch(e) {
@@ -597,16 +563,9 @@ async function carregarPedidos() {
 
 async function salvarPedidos() {
   localStorage.setItem('encompasso_backup', JSON.stringify(pedidos));
-  if (!ghToken) { setSyncStatus('error', 'Sem token'); return false; }
   setSyncStatus('syncing', 'Salvando...');
   try {
-    const res = await ghPut(
-      FILE_PEDIDOS,
-      { pedidos },
-      fileSha,
-      `pedidos: atualizado em ${hojeFormatado()}`
-    );
-    fileSha = res.content.sha;
+    await apiPut(API_PEDIDOS, { pedidos });
     setSyncStatus('ok', 'Salvo');
     return true;
   } catch(e) {
