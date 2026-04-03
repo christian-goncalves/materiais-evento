@@ -2,11 +2,27 @@
 
 ## Status geral
 
+- [x] Fase 0 - Preparacao de ambiente local
 - [x] Fase 1 - Base do spec
 - [x] Fase 2 - API de leitura
 - [x] Fase 3 - API de gravacao
 - [x] Fase 4 - Adaptacao do frontend
-- [x] Fase 5 - Validacao final e PR (parcial: smoke HTTP completo depende de ambiente com servidor ativo)
+- [x] Fase 5 - Validacao final e PR
+
+## Fase 0 - Preparacao de ambiente local
+
+Subetapas:
+1. Instalar stack local (Node LTS + npm + Vercel CLI).
+2. Configurar `.env.local` com variaveis obrigatorias.
+3. Validar servidor local com `vercel dev` em `http://localhost:3000`.
+
+DoD:
+- `node -v` e `vercel --version` funcionando.
+- `.env.local` presente com 3 variaveis obrigatorias.
+- `vercel dev` iniciando sem falha de boot.
+
+Dependencias:
+- Nenhuma.
 
 ## Fase 1 - Base do spec
 
@@ -19,7 +35,7 @@ DoD:
 - Regras de execucao sem decisoes criticas em aberto.
 
 Dependencias:
-- Nenhuma.
+- Fase 0 concluida.
 
 ## Fase 2 - API de leitura
 
@@ -41,7 +57,7 @@ Dependencias:
 Subetapas:
 1. Implementar `PUT /api/pedidos` com validacao minima.
 2. Persistir `pedidos` e projetar `pedido_itens`.
-3. Gerar movimentacao `saida` em `estoque` por pedido salvo.
+3. Gerar movimentacao `saida_pedido` em `estoque` por pedido salvo.
 
 DoD:
 - Gravacao funcional com validacao de payload.
@@ -67,11 +83,14 @@ Dependencias:
 ## Fase 5 - Validacao final e PR
 
 Subetapas:
-1. Executar smoke tests.
-2. Atualizar README com nova configuracao minima.
-3. Preparar PR com diff pequeno e explicavel.
+1. Executar smoke local de leitura (`-SkipWrite`).
+2. Executar smoke local com escrita (sem `-SkipWrite`).
+3. Atualizar README com nova configuracao minima.
+4. Preparar PR com diff pequeno e explicavel.
 
 DoD:
+- Smoke HTTP completo executado com servidor local ativo.
+- Endpoints essenciais retornando 200.
 - Checklist de aceite completo.
 - Seguranca minima aplicada.
 - PR pronto para revisao.

@@ -1,6 +1,35 @@
 # Aceite, Seguranca e Testes
 
+## Checklist de ambiente local (antes do smoke)
+
+- [ ] `node -v` funcionando.
+- [ ] `vercel --version` funcionando.
+- [ ] Arquivo `.env.local` presente na raiz.
+- [ ] Variaveis obrigatorias definidas:
+  - `GSHEETS_SPREADSHEET_ID`
+  - `GOOGLE_SERVICE_ACCOUNT_EMAIL`
+  - `GOOGLE_PRIVATE_KEY`
+- [ ] `vercel dev` ativo em `http://localhost:3000`.
+
 ## Smoke tests obrigatorios
+
+### Smoke leitura (sem escrita)
+
+Comando:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\smoke-api.ps1 -BaseUrl http://localhost:3000 -SkipWrite
+```
+
+### Smoke com escrita
+
+Comando:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\smoke-api.ps1 -BaseUrl http://localhost:3000
+```
+
+## Cenarios funcionais obrigatorios
 
 1. Carregar materiais na interface.
 2. Criar pedido com dois itens.
@@ -15,6 +44,7 @@
 Criterio:
 - Fluxo completo sem quebrar UI nem navegacao.
 - Fluxos de companheiro e financeiro com consistencia de saldo.
+- Endpoints essenciais retornando 200 ponta a ponta.
 
 ## Verificacoes de dados
 
@@ -39,6 +69,7 @@ Criterio:
 - [ ] Escopo respeitado (sem overengineering).
 - [ ] Mudancas concentradas em pontos de acesso a dados.
 - [ ] Contratos de API atendidos.
-- [ ] Smoke tests executados e registrados.
+- [ ] Smoke de leitura executado e registrado.
+- [ ] Smoke com escrita executado e registrado.
 - [ ] README atualizado no minimo necessario.
 - [ ] Sem segredos versionados no repositorio.

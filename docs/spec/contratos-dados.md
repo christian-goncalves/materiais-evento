@@ -12,6 +12,25 @@
 - `GET /api/financeiro`
 - `PATCH /api/financeiro/:id/repasse`
 
+## Pre-requisitos de execucao dos contratos
+
+Variaveis obrigatorias:
+- `GSHEETS_SPREADSHEET_ID`
+- `GOOGLE_SERVICE_ACCOUNT_EMAIL`
+- `GOOGLE_PRIVATE_KEY`
+
+Regras:
+- Contratos de API dependem dessas variaveis estarem definidas no `.env.local` (local) ou na Vercel (deploy).
+- Quando variavel obrigatoria faltar, API deve retornar erro sanitizado (sem expor segredo).
+
+Abas obrigatorias na planilha:
+- `materiais`
+- `pedidos`
+- `pedido_itens`
+- `estoque`
+- `companheiros`
+- `financeiro`
+
 ## Contrato - GET /api/materiais
 
 Resposta:
@@ -31,8 +50,6 @@ Resposta:
 
 Mapeamento planilha:
 - Aba `materiais`: `id`, `nome`, `emoji`, `preco`, `ativo`, `estoque_minimo`.
-- Aba `companheiros`: `id`, `nome`, `ativo`, `created_at`.
-- Aba `financeiro`: `id`, `tipo`, `origem_tipo`, `origem_id`, `companheiro_id`, `material_id`, `quantidade`, `valor_unitario`, `valor_total`, `status_repasse`, `created_at`.
 
 ## Contrato - GET /api/pedidos
 
@@ -61,7 +78,7 @@ Mapeamento planilha:
 - Aba `pedido_itens`: `id`, `pedido_id`, `material_id`, `quantidade`, `preco`.
 
 Regra de projecao:
-- `itens` no frontend eh reconstruido de `pedido_itens` por `pedido_id`.
+- `itens` no frontend e reconstruido de `pedido_itens` por `pedido_id`.
 
 ## Contrato - PUT /api/pedidos
 
