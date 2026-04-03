@@ -58,6 +58,18 @@
       },
       "pago": "Não",
       "pagData": ""
+    },
+    {
+      "id": 6,
+      "nome": "Leandro CSA Guarulhos",
+      "data": "20/03/2026",
+      "tel": "",
+      "itens": {
+        "camiseta": 19,
+        "caneca": 24
+      },
+      "pago": "Não",
+      "pagData": ""
     }
   ]
 }
